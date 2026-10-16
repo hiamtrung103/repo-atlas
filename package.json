@@ -1,0 +1,43 @@
+{
+  "name": "repo-atlas",
+  "private": true,
+  "version": "1.0.0",
+  "description": "A local-first, interactive map of your JavaScript and TypeScript codebase.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "start": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "scan": "tsx scripts/scan.ts",
+    "check": "tsc -b && vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "d3-force": "^3.0.0",
+    "lucide-react": "^1.58.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/d3-force": "^3.0.10",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "vite": "^8.3.4",
+    "vitest": "^4.1.12"
+  }
+}
