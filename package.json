@@ -1,7 +1,7 @@
 {
   "name": "repo-atlas",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A local-first, interactive map of your JavaScript and TypeScript codebase.",
   "type": "module",
   "license": "MIT",

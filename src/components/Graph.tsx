@@ -118,7 +118,9 @@ export default function Graph({
     observer.observe(canvasRef.current!);
     return () => observer.disconnect();
   }, []);
-  const drag = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+  const drag = useRef<{ pointerId: number; x: number; y: number; vx: number; vy: number } | null>(
+    null,
+  );
   const positions = useMemo(() => {
     const groupNames = [...new Set(nodes.map((n) => n.folder))];
     const centers = new Map(
@@ -200,18 +202,25 @@ export default function Graph({
   );
   const maxDegree = Math.max(1, ...analysis.degree.values());
   const toPoint = (clientX: number, clientY: number) => {
-    const svg = svgRef.current!;
+    const svg = svgRef.current;
+    const matrix = svg?.getScreenCTM();
+    if (!svg || !matrix || matrix.a * matrix.d - matrix.b * matrix.c === 0) return null;
     const point = svg.createSVGPoint();
     point.x = clientX;
     point.y = clientY;
-    return point.matrixTransform(svg.getScreenCTM()!.inverse());
+    const result = point.matrixTransform(matrix.inverse());
+    return Number.isFinite(result.x) && Number.isFinite(result.y) ? result : null;
   };
   const onPointerDown = (e: PointerEvent<SVGSVGElement>) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || !e.isPrimary || drag.current) return;
     const p = toPoint(e.clientX, e.clientY);
-    drag.current = { x: p.x, y: p.y, vx: view.x, vy: view.y };
+    if (!p) return;
+    drag.current = { pointerId: e.pointerId, x: p.x, y: p.y, vx: view.x, vy: view.y };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
+  function endDrag(e: PointerEvent<SVGSVGElement>) {
+    if (drag.current?.pointerId === e.pointerId) drag.current = null;
+  }
   function zoom(factor: number) {
     setView((v) => ({ ...v, k: Math.max(0.35, Math.min(3.5, v.k * factor)) }));
   }
@@ -230,25 +239,25 @@ export default function Graph({
         role="group"
         onPointerDown={onPointerDown}
         onPointerMove={(e) => {
-          if (drag.current) {
-            const p = toPoint(e.clientX, e.clientY);
-            setView((v) => ({
-              ...v,
-              x: drag.current!.vx + p.x - drag.current!.x,
-              y: drag.current!.vy + p.y - drag.current!.y,
-            }));
-          }
+          const gesture = drag.current;
+          if (!gesture || gesture.pointerId !== e.pointerId) return;
+          const p = toPoint(e.clientX, e.clientY);
+          if (!p) return;
+          // React may run this updater after pointerup/cancel cleared the ref.
+          // Snapshot the coordinates now; never read mutable gesture state in it.
+          const x = gesture.vx + p.x - gesture.x;
+          const y = gesture.vy + p.y - gesture.y;
+          setView((v) => ({ ...v, x, y }));
         }}
-        onPointerUp={() => {
-          drag.current = null;
-        }}
-        onPointerCancel={() => {
-          drag.current = null;
-        }}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onLostPointerCapture={endDrag}
         onWheel={(e) => {
           const p = toPoint(e.clientX, e.clientY);
+          if (!p) return;
+          const deltaY = e.deltaY;
           setView((v) => {
-            const k = Math.max(0.35, Math.min(3.5, v.k * Math.exp(-e.deltaY * 0.001)));
+            const k = Math.max(0.35, Math.min(3.5, v.k * Math.exp(-deltaY * 0.001)));
             const ratio = k / v.k;
             return {
               k,

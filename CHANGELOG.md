@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1
+
+- Fixed a crash when releasing or cancelling a drag while React still had queued pointer-move updates. Pending updates now use captured coordinates rather than reading a cleared gesture ref.
+- Track the active pointer and end gestures when pointer capture is lost, without letting another pointer interrupt the drag.
+- Ignore pointer/wheel positions when the SVG has no usable screen transform.
+- Added browser regressions for fast release, cancellation, lost capture, multiple pointers, and repeated wheel gestures in both appearances.
+
 ## 1.1.0
 
 - Added complete light and dark appearances, plus automatic system appearance.
