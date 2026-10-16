@@ -17,7 +17,7 @@ export function normalize(path: string): string {
   const parts: string[] = [];
   for (const part of path.replace(/\\/g, '/').split('/')) {
     if (!part || part === '.') continue;
-    if (part === '..') parts.pop();
+    if (part === '..' && parts.length && parts[parts.length - 1] !== '..') parts.pop();
     else parts.push(part);
   }
   return parts.join('/');

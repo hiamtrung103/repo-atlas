@@ -5,6 +5,15 @@ import { demoGraph } from '../src/core/demo';
 import type { AtlasGraph } from '../src/core/types';
 
 describe('AST dependency scanner', () => {
+  it('does not map imports outside the selected root to files inside it', () => {
+    const g = scanSources([
+      { path: 'src/main.ts', content: `import '../../inside';` },
+      { path: 'inside.ts', content: '' },
+    ]);
+    expect(g.edges).toEqual([]);
+    expect(g.nodes.find((n) => n.id === 'src/main.ts')!.unresolved).toEqual(['../../inside']);
+    expect(normalize('../../outside')).toBe('../../outside');
+  });
   it('prefers the primary config and respects .mjs/.cjs TypeScript counterparts', () => {
     const g = scanSources([
       { path: 'tsconfig.test.json', content: '{"compilerOptions":{"paths":{"@/*":["wrong/*"]}}}' },
