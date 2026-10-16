@@ -61,7 +61,7 @@ test('appearance still works when browser storage is unavailable', async ({ page
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.getByRole('combobox', { name: 'Appearance' }).selectOption('light');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await expect(page.locator('.graph-node')).toHaveCount(32);
+  await expect(page.locator('.graph-node')).toHaveCount(33);
   expect(errors).toEqual([]);
 });
 
@@ -144,7 +144,7 @@ test('SVG exports freeze the current light and dark palette', async ({ page }) =
 test('light desktop and mobile layouts', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('combobox', { name: 'Appearance' }).selectOption('light');
-  await expect(page.locator('.graph-node')).toHaveCount(32);
+  await expect(page.locator('.graph-node')).toHaveCount(33);
   await page.screenshot({ path: 'test-results/light-desktop.png', fullPage: true });
   await page.getByRole('button', { name: 'Open project', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCSS('background-color', 'rgb(255, 255, 255)');

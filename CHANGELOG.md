@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0
+
+- Added a shortest directed import-path finder with autocomplete, endpoint swapping, full text export, and an isolated route view with arrows.
+- Recalculate active routes when the type-import filter changes; show when a route becomes unavailable.
+- Added an Islands view for files without mapped incoming or outgoing links, plus isolated-file and active-route sections in Markdown reports.
+- Added Explorer sorting by name, connection count, and source byte size without moving graph nodes.
+- Extended the sample graph with an illustrative disconnected file and updated desktop/light screenshots.
+- Added tests for directional paths, cycles, unreachable files, long routes, type-filter changes, sort order, and responsive path controls; retained drag-crash regressions.
+
 ## 1.1.1
 
 - Fixed a crash when releasing or cancelling a drag while React still had queued pointer-move updates. Pending updates now use captured coordinates rather than reading a cleared gesture ref.

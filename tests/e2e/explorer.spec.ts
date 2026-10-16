@@ -6,7 +6,7 @@ test('demo exploration, search, filters, cycles and export', async ({ page }) =>
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'See the shape of your code.' })).toBeVisible();
-  await expect(page.locator('.graph-node')).toHaveCount(32);
+  await expect(page.locator('.graph-node')).toHaveCount(33);
   await page.getByRole('button', { name: 'Select src/api/client.ts', exact: true }).click();
   await expect(page.locator('.inspected-file h2')).toHaveText('client.ts');
   await page.getByRole('textbox', { name: 'Find a file' }).fill('useTheme');
@@ -18,7 +18,7 @@ test('demo exploration, search, filters, cycles and export', async ({ page }) =>
   await page.getByRole('button', { name: 'Hide all', exact: true }).click();
   await expect(page.getByText('No files in this view')).toBeVisible();
   await page.getByRole('button', { name: 'Show all', exact: true }).click();
-  await expect(page.locator('.graph-node')).toHaveCount(32);
+  await expect(page.locator('.graph-node')).toHaveCount(33);
   await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
   await expect(page.locator('.zoom-controls')).toContainText('120%');
   await page.getByRole('button', { name: 'Fit graph', exact: true }).click();
@@ -93,6 +93,6 @@ test('dialog is keyboard accessible and mobile layout stays within the viewport'
 test('capture the explorer', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('combobox', { name: 'Appearance' }).selectOption('dark');
-  await expect(page.locator('.graph-node')).toHaveCount(32);
+  await expect(page.locator('.graph-node')).toHaveCount(33);
   await page.screenshot({ path: 'test-results/desktop.png', fullPage: true });
 });

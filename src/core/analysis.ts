@@ -1,5 +1,31 @@
 import { edgeKey, MAX_FILES, MAX_EDGES, type Analysis, type AtlasGraph } from './types';
 
+// Shortest directed import path, measured in edges. Cycles are visited once.
+export function findImportPath(
+  outgoing: Map<string, string[]>,
+  from: string,
+  to: string,
+): string[] | null {
+  if (!outgoing.has(from) || !outgoing.has(to)) return null;
+  const parents = new Map<string, string | null>([[from, null]]);
+  const queue = [from];
+  for (let index = 0; index < queue.length; index++) {
+    const current = queue[index];
+    if (current === to) {
+      const path: string[] = [];
+      for (let id: string | null = current; id !== null; id = parents.get(id) ?? null)
+        path.push(id);
+      return path.reverse();
+    }
+    for (const next of outgoing.get(current) ?? []) {
+      if (!outgoing.has(next) || parents.has(next)) continue;
+      parents.set(next, current);
+      queue.push(next);
+    }
+  }
+  return null;
+}
+
 // Reverse reachability includes the starting file exactly once, even in cycles.
 export function collectImpact(incoming: Map<string, string[]>, id: string): Set<string> {
   const result = new Set<string>();

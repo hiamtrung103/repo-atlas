@@ -44,7 +44,7 @@ for (const theme of ['light', 'dark']) {
       await expect(
         page.getByRole('heading', { name: 'See the shape of your code.' }),
       ).toBeVisible();
-      await expect(page.locator('.graph-node')).toHaveCount(32);
+      await expect(page.locator('.graph-node')).toHaveCount(33);
       const map = page.locator('.dependency-svg > g');
       await expect(map).not.toHaveAttribute('transform', before!);
       await expect(map).not.toHaveAttribute('transform', /NaN|Infinity/);
@@ -75,7 +75,7 @@ test('another pointer cannot interrupt an active drag', async ({ page }) => {
   await page.mouse.move(box.x + 55, box.y + 75, { steps: 4 });
   await page.mouse.up();
   await expect(page.locator('.dependency-svg > g')).not.toHaveAttribute('transform', before!);
-  await expect(page.locator('.graph-node')).toHaveCount(32);
+  await expect(page.locator('.graph-node')).toHaveCount(33);
   expect(errors).toEqual([]);
 });
 
@@ -92,7 +92,7 @@ test('repeated vertical wheel gestures keep zoom bounded and the viewer responsi
     await page.mouse.wheel(0, -200);
     await page.mouse.wheel(0, 200);
   }
-  await expect(page.locator('.graph-node')).toHaveCount(32);
+  await expect(page.locator('.graph-node')).toHaveCount(33);
   await expect(page.locator('.dependency-svg > g')).not.toHaveAttribute(
     'transform',
     /NaN|Infinity/,

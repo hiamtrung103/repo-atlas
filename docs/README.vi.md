@@ -37,6 +37,9 @@ Sau đó chọn **Open project → Import an Atlas graph** để mở JSON. CLI 
 - **Hotspots:** 20% file có tổng số liên kết cao nhất. Node lớn hơn có nhiều liên kết hơn.
 - **Focus connections:** chỉ xem file đang chọn, các file nó import và những file import nó trực tiếp. Có nút copy đường dẫn trong inspector.
 - **Explore impact:** lần theo các file phụ thuộc trực tiếp hoặc gián tiếp vào file đang chọn. Số đếm không tính chính file đó; đây là quan hệ cấu trúc, không khẳng định một thay đổi sẽ gây lỗi runtime.
+- **Trace path:** chọn hai đường dẫn file để tìm chuỗi import ngắn nhất theo chiều từ file gọi tới file được import. Có thể đảo chiều, tải toàn bộ đường đi thành file text hoặc chỉ hiện route đó trên bản đồ. Đổi bộ lọc type imports sẽ tự tính lại đường đi.
+- **Islands:** xem file không có import nội bộ và không được file nào trong graph import. File đó vẫn có thể là entry point hoặc được nạp động; đây không phải kết luận code thừa.
+- **Sort within folders:** sắp xếp Explorer theo tên, tổng liên kết hoặc dung lượng file; không làm thay đổi bố cục bản đồ.
 - **Light / Dark / System:** chuyển giao diện ở thanh trên cùng; mặc định theo hệ thống. Lựa chọn được lưu qua lần tải lại, và SVG xuất ra giữ đúng màu giao diện hiện tại.
 - **Type imports:** bật/tắt import chỉ dùng cho kiểu dữ liệu. Đường nét đứt thể hiện type-only import.
 - Xuất JSON, SVG của bản đồ hiện tại hoặc báo cáo Markdown.
@@ -48,6 +51,8 @@ Hỗ trợ import/export, dynamic import với đường dẫn cố định, Com
 Giới hạn 2.500 file nguồn, 15 MB tổng nội dung nguồn/config và 1 MB mỗi file. Bản đồ vẽ tối đa 350 file phù hợp một lúc để giữ tương tác mượt; dùng tìm kiếm và bộ lọc để khám phá phần còn lại. Phân tích và JSON vẫn giữ toàn bộ graph.
 
 App bỏ qua thư mục dependency/build phổ biến nhưng không đọc quy tắc `.gitignore` hay include/exclude của tsconfig. Demo có dữ liệu minh họa; quét thư mục thật sẽ tính metadata thật.
+
+Kết quả Trace path xem trước tối đa 100 bước, nhưng bản tải xuống và báo cáo giữ toàn bộ đường đi. Khi xem route, bản đồ ưu tiên thứ tự đường đi và vẫn vẽ tối đa 350 file phù hợp; dùng tìm kiếm để xem các bước sau. Nếu không tìm được đường nối, nguyên nhân có thể là giới hạn phân giải import hoặc dynamic import không có đường dẫn cố định.
 
 ## Dữ liệu ở đâu?
 

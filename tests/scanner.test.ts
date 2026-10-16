@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { scanSources, normalize } from '../src/core/scanner';
-import { analyze, collectImpact, parseGraph } from '../src/core/analysis';
+import { analyze, collectImpact, findImportPath, parseGraph } from '../src/core/analysis';
 import { demoGraph } from '../src/core/demo';
 import type { AtlasGraph } from '../src/core/types';
 
@@ -130,6 +130,56 @@ describe('AST dependency scanner', () => {
 });
 
 describe('graph analysis and import validation', () => {
+  it('finds the shortest directed path instead of the first depth-first route', () => {
+    const outgoing = new Map([
+      ['start', ['long', 'short']],
+      ['long', ['middle']],
+      ['middle', ['target']],
+      ['short', ['target']],
+      ['target', ['long']],
+    ]);
+    expect(findImportPath(outgoing, 'start', 'target')).toEqual(['start', 'short', 'target']);
+    expect(findImportPath(outgoing, 'target', 'start')).toBeNull();
+    expect(findImportPath(outgoing, 'target', 'target')).toEqual(['target']);
+    expect(findImportPath(outgoing, 'unknown', 'target')).toBeNull();
+  });
+  it('traces long paths iteratively without overflowing the stack', () => {
+    const outgoing = new Map(
+      Array.from({ length: 2500 }, (_, index) => [
+        String(index),
+        index < 2499 ? [String(index + 1)] : [],
+      ]),
+    );
+    const path = findImportPath(outgoing, '0', '2499');
+    expect(path).toHaveLength(2500);
+    expect(path?.[2499]).toBe('2499');
+  });
+  it('recomputes shortest paths when type-only edges are excluded', () => {
+    const graph = scanSources([
+      { path: 'a.ts', content: `import './b'; import type { C } from './c';` },
+      { path: 'b.ts', content: `import './c';` },
+      { path: 'c.ts', content: '' },
+    ]);
+    expect(findImportPath(analyze(graph).outgoing, 'a.ts', 'c.ts')).toEqual(['a.ts', 'c.ts']);
+    expect(
+      findImportPath(
+        analyze({ ...graph, edges: graph.edges.filter((e) => e.kind !== 'type') }).outgoing,
+        'a.ts',
+        'c.ts',
+      ),
+    ).toEqual(['a.ts', 'b.ts', 'c.ts']);
+  });
+  it('recognizes local islands without treating an entry point with imports as isolated', () => {
+    const graph = scanSources([
+      { path: 'entry.ts', content: `import './helper';` },
+      { path: 'helper.ts', content: '' },
+      { path: 'standalone.ts', content: `import 'react';` },
+    ]);
+    const analysis = analyze(graph);
+    expect([...analysis.degree].filter(([, degree]) => degree === 0).map(([id]) => id)).toEqual([
+      'standalone.ts',
+    ]);
+  });
   it('finds transitive dependents without looping through cycles or including unrelated files', () => {
     const incoming = new Map([
       ['a', []],

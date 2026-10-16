@@ -194,7 +194,8 @@ export default function Graph({
         .filter((g) => g !== null),
     [nodes, positions, folders],
   );
-  const active = hovered ?? selected;
+  const activeId = hovered ?? selected;
+  const active = mode === 'path' || !activeId || !positions.has(activeId) ? null : activeId;
   const neighbors = new Set(
     active
       ? [active, ...(analysis.incoming.get(active) ?? []), ...(analysis.outgoing.get(active) ?? [])]
@@ -335,7 +336,7 @@ export default function Graph({
             if (!a || !b) return null;
             const isCycle = analysis.cycleEdges.has(edgeKey(e.source, e.target));
             const connected = e.source === active || e.target === active;
-            const highlighted = connected || (mode === 'cycles' && isCycle);
+            const highlighted = connected || mode === 'path' || (mode === 'cycles' && isCycle);
             const color = isCycle ? palette.cycle : highlighted ? palette.accent : palette.edge;
             const dx = b.x - a.x,
               dy = b.y - a.y;

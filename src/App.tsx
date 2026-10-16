@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleAlert,
+  CircleDashed,
   Code2,
   Copy,
   Download,
@@ -25,6 +26,7 @@ import {
   LockKeyhole,
   Orbit,
   RefreshCw,
+  Route,
   Search,
   ShieldCheck,
   Sparkles,
@@ -33,15 +35,17 @@ import {
 } from 'lucide-react';
 import Graph, { colorFor } from './components/Graph';
 import ThemeControl from './components/ThemeControl';
+import PathFinder from './components/PathFinder';
 import { useTheme } from './hooks/useTheme';
 import { version } from '../package.json';
-import { analyze, collectImpact, parseGraph } from './core/analysis';
+import { analyze, collectImpact, findImportPath, parseGraph } from './core/analysis';
 import { demoGraph } from './core/demo';
 import { download, exportSvg, readProject, scanInWorker } from './core/io';
-import { MAX_BYTES, type AtlasGraph } from './core/types';
+import { edgeKey, MAX_BYTES, type AtlasGraph } from './core/types';
 
 const REPO_URL = 'https://github.com/hiamtrung103/repo-atlas';
-type Mode = 'all' | 'cycles' | 'hotspots';
+type Mode = 'all' | 'cycles' | 'hotspots' | 'islands';
+type SortOrder = 'name' | 'connections' | 'size';
 
 function ProjectDialog({
   onClose,
@@ -62,7 +66,15 @@ function ProjectDialog({
       className="project-dialog"
       onClose={onClose}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target !== e.currentTarget) return;
+        const bounds = e.currentTarget.getBoundingClientRect();
+        if (
+          e.clientX < bounds.left ||
+          e.clientX > bounds.right ||
+          e.clientY < bounds.top ||
+          e.clientY > bounds.bottom
+        )
+          onClose();
       }}
       aria-labelledby="dialog-title"
     >
@@ -119,6 +131,9 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>('src/App.tsx');
   const [mode, setMode] = useState<Mode>('all');
   const [focus, setFocus] = useState<'neighbors' | 'impact' | null>(null);
+  const [trace, setTrace] = useState<{ from: string; to: string } | null>(null);
+  const [pathOpen, setPathOpen] = useState(false);
+  const [sort, setSort] = useState<SortOrder>('name');
   const [query, setQuery] = useState('');
   const [hiddenFolders, setHiddenFolders] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -143,6 +158,22 @@ export default function App() {
     [graph, includeTypes],
   );
   const analysis = useMemo(() => analyze(activeGraph), [activeGraph]);
+  const islands = useMemo(
+    () => new Set(graph.nodes.filter((n) => analysis.degree.get(n.id) === 0).map((n) => n.id)),
+    [graph, analysis],
+  );
+  const tracedPath = useMemo(
+    () => (trace ? findImportPath(analysis.outgoing, trace.from, trace.to) : null),
+    [analysis, trace],
+  );
+  const pathRanks = useMemo(
+    () => new Map(tracedPath?.map((id, index) => [id, index]) ?? []),
+    [tracedPath],
+  );
+  const pathEdges = useMemo(
+    () => new Set(tracedPath?.slice(1).map((id, index) => edgeKey(tracedPath[index], id)) ?? []),
+    [tracedPath],
+  );
   const impact = useMemo(
     () => (selected ? collectImpact(analysis.incoming, selected) : new Set<string>()),
     [analysis, selected],
@@ -186,12 +217,43 @@ export default function App() {
           !hiddenFolders.has(n.folder) &&
           n.id.toLowerCase().includes(query.toLowerCase()) &&
           (!focus || scopeIds.has(n.id)) &&
+          (!trace || pathRanks.has(n.id)) &&
           (mode !== 'cycles' || analysis.cycleNodes.has(n.id)) &&
+          (mode !== 'islands' || islands.has(n.id)) &&
           (mode !== 'hotspots' || hotspotIds.has(n.id)),
       ),
-    [graph, hiddenFolders, query, mode, analysis, hotspotIds, focus, scopeIds],
+    [
+      graph,
+      hiddenFolders,
+      query,
+      mode,
+      analysis,
+      hotspotIds,
+      focus,
+      scopeIds,
+      trace,
+      pathRanks,
+      islands,
+    ],
+  );
+  const sortedFiles = useMemo(
+    () =>
+      [...matching].sort((a, b) => {
+        if (sort === 'connections')
+          return (
+            (analysis.degree.get(b.id) ?? 0) - (analysis.degree.get(a.id) ?? 0) ||
+            a.id.localeCompare(b.id)
+          );
+        if (sort === 'size') return b.bytes - a.bytes || a.id.localeCompare(b.id);
+        return a.id.localeCompare(b.id);
+      }),
+    [matching, sort, analysis],
   );
   const visibleNodes = useMemo(() => {
+    if (trace)
+      return [...matching]
+        .sort((a, b) => pathRanks.get(a.id)! - pathRanks.get(b.id)!)
+        .slice(0, 350);
     if (matching.length <= 350) return matching;
     const ranked = [...matching].sort(
       (a, b) =>
@@ -199,16 +261,17 @@ export default function App() {
         (analysis.degree.get(b.id) ?? 0) - (analysis.degree.get(a.id) ?? 0),
     );
     return ranked.slice(0, 350);
-  }, [matching, selected, analysis]);
+  }, [matching, selected, analysis, trace, pathRanks]);
   const visibleEdges = useMemo(() => {
     const ids = new Set(visibleNodes.map((n) => n.id));
     return activeGraph.edges.filter(
       (e) =>
         ids.has(e.source) &&
         ids.has(e.target) &&
+        (!trace || pathEdges.has(edgeKey(e.source, e.target))) &&
         (mode !== 'cycles' || analysis.cycleEdges.has(`${e.source}\0${e.target}`)),
     );
-  }, [activeGraph, visibleNodes, mode, analysis]);
+  }, [activeGraph, visibleNodes, mode, analysis, trace, pathEdges]);
   const nodeById = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph]);
   const inspected = selected ? nodeById.get(selected) : undefined;
   const selectedCycle = analysis.cycles.find((c) => c.includes(selected ?? ''));
@@ -295,6 +358,16 @@ export default function App() {
   function changeMode(next: Mode) {
     setMode(next);
     setFocus(null);
+    setTrace(null);
+  }
+  function showPath(path: string[]) {
+    changeMode('all');
+    setTrace({ from: path[0], to: path[path.length - 1] });
+    setSelected(path[0]);
+    setQuery('');
+    setHiddenFolders(new Set());
+    setResetKey((k) => k + 1);
+    setPathOpen(false);
   }
   function focusFile(next: 'neighbors' | 'impact') {
     changeMode('all');
@@ -334,6 +407,7 @@ export default function App() {
         `- Files: ${graph.nodes.length}`,
         `- Dependencies: ${activeGraph.edges.length}`,
         `- Circular groups: ${analysis.cycles.length}`,
+        `- Isolated files: ${islands.size}`,
         `- Type-only imports: ${includeTypes ? 'included' : 'excluded'}`,
         `- External packages: ${externalCount}`,
         `- Unresolved imports: ${unresolvedCount}`,
@@ -358,6 +432,22 @@ export default function App() {
           ...c.map((id) => `- ${safe(id)}`),
           '',
         ]),
+        '## Isolated files',
+        '',
+        'These files have no mapped incoming or outgoing dependencies under the current type-import filter. This does not prove they are unused.',
+        '',
+        ...graph.nodes.filter((n) => islands.has(n.id)).map((n) => `- ${safe(n.id)}`),
+        '',
+        ...(trace
+          ? [
+              '## Traced import path',
+              '',
+              ...(tracedPath
+                ? tracedPath.map((id, index) => `${index + 1}. ${safe(id)}`)
+                : ['No directed path under the current type-import filter.']),
+              '',
+            ]
+          : []),
         '## Scan notes',
         '',
         ...graph.warnings.map((w) => `- ${safe(w)}`),
@@ -522,9 +612,21 @@ export default function App() {
                 <div className="section-label">
                   PROJECT FILES <span>{matching.length}</span>
                 </div>
+                <label className="sort-control">
+                  <span>Sort within folders</span>
+                  <select
+                    aria-label="Sort files"
+                    value={sort}
+                    onChange={(event) => setSort(event.target.value as SortOrder)}
+                  >
+                    <option value="name">Name</option>
+                    <option value="connections">Most connected</option>
+                    <option value="size">Largest files</option>
+                  </select>
+                </label>
                 <div className="file-tree">
                   {folders.map((folder) => {
-                    const children = matching.filter((n) => n.folder === folder);
+                    const children = sortedFiles.filter((n) => n.folder === folder);
                     const allChildren = graph.nodes.filter(
                       (n) =>
                         n.folder === folder && n.id.toLowerCase().includes(query.toLowerCase()),
@@ -572,6 +674,20 @@ export default function App() {
                                     : 'JS'}
                               </span>
                               <span>{n.label}</span>
+                              {sort !== 'name' && (
+                                <small
+                                  className="file-metric"
+                                  title={
+                                    sort === 'connections'
+                                      ? 'Total imports and dependents'
+                                      : 'Source file size'
+                                  }
+                                >
+                                  {sort === 'connections'
+                                    ? analysis.degree.get(n.id)
+                                    : `${(n.bytes / 1024).toFixed(1)}k`}
+                                </small>
+                              )}
                               {analysis.cycleNodes.has(n.id) && (
                                 <span
                                   className="cycle-dot"
@@ -777,16 +893,50 @@ export default function App() {
                 >
                   <Activity size={14} /> Hotspots
                 </button>
+                <button
+                  className={mode === 'islands' ? 'active' : ''}
+                  onClick={() => changeMode('islands')}
+                >
+                  <CircleDashed size={14} /> Islands{' '}
+                  <span className="island-count">{islands.size}</span>
+                </button>
               </div>
-              <label className="type-toggle">
-                <input
-                  type="checkbox"
-                  checked={includeTypes}
-                  onChange={(e) => setIncludeTypes(e.target.checked)}
-                />
-                <span className="switch" /> Type imports
-              </label>
+              <div className="map-tools">
+                <button
+                  className="trace-button"
+                  onClick={() => setPathOpen(true)}
+                  disabled={!graph.nodes.length}
+                >
+                  <Route size={14} /> Trace path
+                </button>
+                <label className="type-toggle">
+                  <input
+                    type="checkbox"
+                    checked={includeTypes}
+                    onChange={(e) => setIncludeTypes(e.target.checked)}
+                  />
+                  <span className="switch" /> Type imports
+                </label>
+              </div>
             </div>
+            {trace && (
+              <div className="focus-banner path-banner">
+                <Route size={15} />
+                <span>
+                  <strong>Import path:</strong> {trace.from.split('/').pop()} →{' '}
+                  {trace.to.split('/').pop()}{' '}
+                  <small>
+                    ·{' '}
+                    {tracedPath
+                      ? `${tracedPath.length - 1} import${tracedPath.length === 2 ? '' : 's'}`
+                      : 'No path with current type filter'}
+                  </small>
+                </span>
+                <button aria-label="Clear traced path" onClick={() => setTrace(null)}>
+                  <X size={14} /> Show all
+                </button>
+              </div>
+            )}
             {focus && (
               <div className="focus-banner">
                 <Focus size={14} />
@@ -801,13 +951,19 @@ export default function App() {
             )}
             {matching.length > 350 && (
               <div className="graph-notice">
-                Showing the 350 most connected of {matching.length} matching files. Search or filter
-                folders to explore the rest.
+                Showing {trace ? 'the first 350 route files' : 'the 350 most connected'} of{' '}
+                {matching.length} matching files. Search or filter folders to explore the rest.
               </div>
             )}
             {mode === 'hotspots' && (
               <div className="graph-notice">
                 Top 20% by total connections. Larger nodes have more imports and dependents.
+              </div>
+            )}
+            {mode === 'islands' && (
+              <div className="graph-notice">
+                Files without mapped imports or dependents under the current type filter. They may
+                still be entry points or loaded dynamically.
               </div>
             )}
             <Graph
@@ -817,7 +973,7 @@ export default function App() {
               analysis={analysis}
               selected={selected}
               onSelect={selectFile}
-              mode={mode}
+              mode={trace ? 'path' : mode}
               resetKey={resetKey}
               theme={resolvedTheme}
             />
@@ -1059,6 +1215,16 @@ export default function App() {
           onClose={() => setOpen(false)}
           onFolder={() => folderInput.current?.click()}
           onJson={() => jsonInput.current?.click()}
+        />
+      )}
+      {pathOpen && (
+        <PathFinder
+          graph={graph}
+          analysis={analysis}
+          selected={selected}
+          includeTypes={includeTypes}
+          onClose={() => setPathOpen(false)}
+          onTrace={showPath}
         />
       )}
       {busy && (

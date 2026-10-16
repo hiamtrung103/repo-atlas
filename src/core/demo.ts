@@ -78,6 +78,7 @@ const modules: Record<string, string[]> = {
   'src/lib/telemetry.ts': ['src/lib/format.ts'],
   'src/types/user.ts': [],
   'src/types/project.ts': ['src/types/user.ts'],
+  'src/lib/colorTokens.ts': [],
 };
 
 export const demoGraph: AtlasGraph = {
