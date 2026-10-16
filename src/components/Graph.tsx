@@ -11,6 +11,7 @@ import {
 } from 'd3-force';
 import { Minus, Plus, Maximize, MousePointer2, Eye, EyeOff } from 'lucide-react';
 import { edgeKey, type Analysis, type AtlasEdge, type AtlasNode } from '../core/types';
+import type { ResolvedTheme } from '../hooks/useTheme';
 
 export const COLORS = [
   '#b6a1f5',
@@ -22,8 +23,20 @@ export const COLORS = [
   '#88c8d2',
   '#b8b9c8',
 ];
-export function colorFor(folder: string, folders: string[]) {
-  return COLORS[Math.max(0, folders.indexOf(folder)) % COLORS.length];
+const LIGHT_COLORS = [
+  '#7351ba',
+  '#286caa',
+  '#a26918',
+  '#258265',
+  '#b0467a',
+  '#687e28',
+  '#2c7f8e',
+  '#687085',
+];
+export function colorFor(folder: string, folders: string[], theme: ResolvedTheme = 'dark') {
+  return (theme === 'light' ? LIGHT_COLORS : COLORS)[
+    Math.max(0, folders.indexOf(folder)) % COLORS.length
+  ];
 }
 interface Point extends SimulationNodeDatum {
   id: string;
@@ -40,6 +53,7 @@ interface Props {
   onSelect: (id: string) => void;
   mode: string;
   resetKey: number;
+  theme: ResolvedTheme;
 }
 
 export default function Graph({
@@ -51,7 +65,30 @@ export default function Graph({
   onSelect,
   mode,
   resetKey,
+  theme,
 }: Props) {
+  const palette =
+    theme === 'light'
+      ? {
+          accent: '#3b741e',
+          cycle: '#b55b23',
+          edge: '#647568',
+          ink: '#334637',
+          selectedInk: '#285018',
+          core: '#f8faf6',
+          halo: '#f8faf6',
+          focus: '#fff',
+        }
+      : {
+          accent: '#c3f36b',
+          cycle: '#f3a075',
+          edge: '#8b9498',
+          ink: '#b5bdb9',
+          selectedInk: '#d6f6a3',
+          core: '#161a19',
+          halo: '#151817',
+          focus: '#28331d',
+        };
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [labels, setLabels] = useState(true);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -231,7 +268,7 @@ export default function Graph({
             markerHeight="5"
             orient="auto-start-reverse"
           >
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#c3f36b" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill={palette.accent} />
           </marker>
           <marker
             id="arrow-cycle"
@@ -242,11 +279,11 @@ export default function Graph({
             markerHeight="5"
             orient="auto-start-reverse"
           >
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#f3a075" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill={palette.cycle} />
           </marker>
           <radialGradient id="node-glow">
-            <stop stopColor="#c3f36b" stopOpacity=".15" />
-            <stop offset="1" stopColor="#c3f36b" stopOpacity="0" />
+            <stop stopColor={palette.accent} stopOpacity=".15" />
+            <stop offset="1" stopColor={palette.accent} stopOpacity="0" />
           </radialGradient>
         </defs>
         <g
@@ -256,7 +293,7 @@ export default function Graph({
             <g
               key={g.folder}
               className="folder-region"
-              style={{ color: colorFor(g.folder, folders) }}
+              style={{ color: colorFor(g.folder, folders, theme) }}
             >
               <rect
                 x={g.x}
@@ -290,7 +327,7 @@ export default function Graph({
             const isCycle = analysis.cycleEdges.has(edgeKey(e.source, e.target));
             const connected = e.source === active || e.target === active;
             const highlighted = connected || (mode === 'cycles' && isCycle);
-            const color = isCycle ? '#f3a075' : highlighted ? '#c3f36b' : '#8b9498';
+            const color = isCycle ? palette.cycle : highlighted ? palette.accent : palette.edge;
             const dx = b.x - a.x,
               dy = b.y - a.y;
             const d =
@@ -304,7 +341,7 @@ export default function Graph({
                 fill="none"
                 stroke={color}
                 strokeWidth={highlighted ? 1.7 : 1}
-                strokeOpacity={highlighted ? 0.8 : active ? 0.1 : 0.25}
+                strokeOpacity={highlighted ? 0.85 : active ? (theme === 'light' ? 0.2 : 0.1) : 0.3}
                 strokeDasharray={e.kind === 'type' ? '4 4' : undefined}
                 markerEnd={highlighted ? `url(#arrow-${isCycle ? 'cycle' : 'active'})` : undefined}
               />
@@ -315,10 +352,10 @@ export default function Graph({
             const isSelected = n.id === selected,
               isCycle = analysis.cycleNodes.has(n.id);
             const color = isSelected
-              ? '#c3f36b'
+              ? palette.accent
               : mode === 'cycles' && isCycle
-                ? '#f3a075'
-                : colorFor(n.folder, folders);
+                ? palette.cycle
+                : colorFor(n.folder, folders, theme);
             const radius =
               mode === 'hotspots'
                 ? 5 + ((analysis.degree.get(n.id) ?? 0) / maxDegree) * 14
@@ -333,7 +370,7 @@ export default function Graph({
                 aria-pressed={isSelected}
                 className="graph-node"
                 transform={`translate(${p.x},${p.y})`}
-                opacity={dimmed ? 0.55 : 1}
+                opacity={dimmed ? (theme === 'light' ? 0.75 : 0.55) : 1}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => onSelect(n.id)}
                 onKeyDown={(e) => {
@@ -367,22 +404,24 @@ export default function Graph({
                   stroke={color}
                   strokeWidth="1.5"
                 />
-                <circle r="2.5" fill={isSelected ? '#28331d' : '#161a19'} />
+                <circle r="2.5" fill={isSelected ? palette.focus : palette.core} />
                 {isCycle && (
                   <circle
                     cx={radius - 1}
                     cy={-radius + 1}
                     r="3.3"
-                    fill="#f3a075"
-                    stroke="#151817"
+                    fill={palette.cycle}
+                    stroke={palette.halo}
                     strokeWidth="1.6"
                   />
                 )}
-                {(labels || isSelected || hovered === n.id) && (
+                {((labels && (size.width > 550 || neighbors.has(n.id))) ||
+                  isSelected ||
+                  hovered === n.id) && (
                   <text
                     y={radius + 18}
                     textAnchor="middle"
-                    fill={isSelected ? '#d6f6a3' : '#b5bdb9'}
+                    fill={isSelected ? palette.selectedInk : palette.ink}
                     fontSize={isSelected ? '12' : '11'}
                     fontFamily="monospace"
                     fontWeight={isSelected ? '600' : '400'}

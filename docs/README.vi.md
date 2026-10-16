@@ -35,6 +35,9 @@ Sau đó chọn **Open project → Import an Atlas graph** để mở JSON. CLI 
 - Tìm file bằng tên hoặc đường dẫn; `Ctrl/⌘ K` đưa con trỏ tới ô tìm kiếm.
 - **Cycles:** các nhóm file có thể đi tới nhau qua chuỗi import. Đây là nhóm liên thông mạnh, không phải danh sách theo thứ tự vòng.
 - **Hotspots:** 20% file có tổng số liên kết cao nhất. Node lớn hơn có nhiều liên kết hơn.
+- **Focus connections:** chỉ xem file đang chọn, các file nó import và những file import nó trực tiếp. Có nút copy đường dẫn trong inspector.
+- **Explore impact:** lần theo các file phụ thuộc trực tiếp hoặc gián tiếp vào file đang chọn. Số đếm không tính chính file đó; đây là quan hệ cấu trúc, không khẳng định một thay đổi sẽ gây lỗi runtime.
+- **Light / Dark / System:** chuyển giao diện ở thanh trên cùng; mặc định theo hệ thống. Lựa chọn được lưu qua lần tải lại, và SVG xuất ra giữ đúng màu giao diện hiện tại.
 - **Type imports:** bật/tắt import chỉ dùng cho kiểu dữ liệu. Đường nét đứt thể hiện type-only import.
 - Xuất JSON, SVG của bản đồ hiện tại hoặc báo cáo Markdown.
 
@@ -49,6 +52,8 @@ App bỏ qua thư mục dependency/build phổ biến nhưng không đọc quy t
 ## Dữ liệu ở đâu?
 
 Code được xử lý trong bộ nhớ trình duyệt bằng Web Worker, không upload lên server. Font được đóng gói cùng app; không có analytics. Reload sẽ xóa project đang mở khỏi bộ nhớ.
+
+Chỉ lựa chọn giao diện được lưu trong local storage. Nếu trình duyệt chặn lưu trữ, bạn vẫn đổi theme được trong lần mở hiện tại.
 
 File JSON xuất ra không có nội dung code, nhưng có đường dẫn tương đối, quan hệ import, số dòng/dung lượng và tên package. Kiểm tra trước khi chia sẻ cấu trúc project riêng.
 

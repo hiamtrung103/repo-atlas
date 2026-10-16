@@ -88,9 +88,24 @@ export function exportSvg() {
   const { width, height } = svg.viewBox.baseVal;
   clone.setAttribute('width', '1600');
   clone.setAttribute('height', String(Math.round((1600 * height) / width)));
-  clone.insertAdjacentHTML(
-    'afterbegin',
-    `<rect width="${width}" height="${height}" fill="#121615"/>`,
-  );
+  // Freeze the current theme into the export rather than depending on app CSS.
+  const originalTexts = svg.querySelectorAll('text');
+  clone.querySelectorAll('text').forEach((text, index) => {
+    const computed = getComputedStyle(originalTexts[index]);
+    for (const property of [
+      'stroke',
+      'stroke-width',
+      'stroke-linejoin',
+      'paint-order',
+      'font-family',
+    ]) {
+      text.style.setProperty(property, computed.getPropertyValue(property));
+    }
+  });
+  const background = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  background.setAttribute('width', String(width));
+  background.setAttribute('height', String(height));
+  background.setAttribute('fill', getComputedStyle(svg.parentElement!).backgroundColor);
+  clone.prepend(background);
   download(new XMLSerializer().serializeToString(clone), 'repo-atlas-map.svg', 'image/svg+xml');
 }

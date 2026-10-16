@@ -92,6 +92,7 @@ test('dialog is keyboard accessible and mobile layout stays within the viewport'
 
 test('capture the explorer', async ({ page }) => {
   await page.goto('/');
+  await page.getByRole('combobox', { name: 'Appearance' }).selectOption('dark');
   await expect(page.locator('.graph-node')).toHaveCount(32);
   await page.screenshot({ path: 'test-results/desktop.png', fullPage: true });
 });

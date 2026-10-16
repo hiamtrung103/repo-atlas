@@ -1,0 +1,17 @@
+# Changelog
+
+## 1.1.0
+
+- Added complete light and dark appearances, plus automatic system appearance.
+- Persisted the appearance preference, with storage-restricted fallback and cross-tab updates.
+- Applied the preferred theme before React starts to avoid a flash of the wrong appearance.
+- Tuned graph colors for light backgrounds and made SVG exports retain the current theme and text outlines.
+- Added focused exploration of immediate connections and transitive change impact, with cycle-safe reachability.
+- Added one-click copying of the selected file's relative path.
+- Extended browser coverage for appearance, system changes, persistence, unavailable storage, impact filtering, responsive layouts, and exported SVG colors.
+
+## 1.0.0
+
+- Initial local-first dependency explorer for JavaScript and TypeScript.
+- AST scanning, circular groups, hotspots, folder filters, browser folder import, and CLI.
+- JSON, SVG, and Markdown exports, bilingual documentation, and GitHub Pages demo.

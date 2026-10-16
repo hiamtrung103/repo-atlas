@@ -1,5 +1,22 @@
 import { edgeKey, MAX_FILES, MAX_EDGES, type Analysis, type AtlasGraph } from './types';
 
+// Reverse reachability includes the starting file exactly once, even in cycles.
+export function collectImpact(incoming: Map<string, string[]>, id: string): Set<string> {
+  const result = new Set<string>();
+  if (!incoming.has(id)) return result;
+  const queue = [id];
+  result.add(id);
+  for (let index = 0; index < queue.length; index++) {
+    for (const next of incoming.get(queue[index]) ?? []) {
+      if (!result.has(next)) {
+        result.add(next);
+        queue.push(next);
+      }
+    }
+  }
+  return result;
+}
+
 // Iterative Kosaraju: no call-stack limit, even for long dependency chains.
 export function analyze(graph: AtlasGraph): Analysis {
   const incoming = new Map(graph.nodes.map((n) => [n.id, [] as string[]]));

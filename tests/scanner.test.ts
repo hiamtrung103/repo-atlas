@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { scanSources, normalize } from '../src/core/scanner';
-import { analyze, parseGraph } from '../src/core/analysis';
+import { analyze, collectImpact, parseGraph } from '../src/core/analysis';
 import { demoGraph } from '../src/core/demo';
 import type { AtlasGraph } from '../src/core/types';
 
@@ -130,6 +130,17 @@ describe('AST dependency scanner', () => {
 });
 
 describe('graph analysis and import validation', () => {
+  it('finds transitive dependents without looping through cycles or including unrelated files', () => {
+    const incoming = new Map([
+      ['a', []],
+      ['b', ['a', 'c']],
+      ['c', ['b']],
+      ['island', []],
+    ]);
+    expect(collectImpact(incoming, 'c')).toEqual(new Set(['a', 'b', 'c']));
+    expect(collectImpact(incoming, 'island')).toEqual(new Set(['island']));
+    expect(collectImpact(incoming, 'absent')).toEqual(new Set());
+  });
   it('strips unknown imported fields before a graph can be re-exported', () => {
     const value = {
       ...demoGraph,

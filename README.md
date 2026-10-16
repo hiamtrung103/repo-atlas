@@ -19,6 +19,13 @@ Follow the connections. Find the friction. Know your codebase.
 
 </div>
 
+<details>
+<summary>Prefer a lighter view? See the light appearance.</summary>
+
+![Repo Atlas in light mode](docs/screenshot-light.png)
+
+</details>
+
 ## Why Atlas?
 
 Reading one file tells you what it does. Seeing its connections tells you where it belongs.
@@ -31,6 +38,8 @@ Repo Atlas turns a local project into an explorable graph. Trace the files that 
 - **Real syntax parsing** — TypeScript's compiler API reads imports, re-exports, literal dynamic imports, CommonJS `require`, and type-only dependencies.
 - **Circular groups** — strongly connected component analysis finds multi-file cycles and self-imports. Internal circular edges are highlighted.
 - **Architectural hotspots** — explore the top 20% of files by total incoming and outgoing connections.
+- **Change impact & focus** — isolate a file's immediate connections or trace all its transitive dependents before a refactor. Copy the selected path from the inspector.
+- **Light, dark & system** — switch appearance from the header, keep your preference across reloads, or follow your device automatically. The graph and SVG exports use the same palette.
 - **Search & filters** — search paths, toggle folders, or exclude type-only edges to distinguish runtime relationships.
 - **Portable exports** — save a source-free JSON graph, an SVG of the current map, or a Markdown architecture report.
 - **Browser + CLI** — select a folder in the browser or scan one from your terminal.
@@ -87,6 +96,12 @@ The `dist/` directory is a static site. Assets use relative URLs, including the 
 
 Click a file to inspect both directions. Hover a node to trace its neighbors. Use `Ctrl/⌘ K` to focus search, drag empty map space to pan, and use the zoom controls or mouse wheel to zoom. Graph nodes also support keyboard focus and Enter/Space selection.
 
+Use **Focus connections** in the inspector to isolate the selected file, its imports, and its direct dependents. **Explore impact** instead follows incoming edges transitively and includes the selected file in the map. The impact counter counts other files only. Both operations clear search and folder filters; **Show all** restores the full view. The type-import toggle still applies.
+
+Change impact describes structural reachability in the mapped sources; it does not predict whether a code change will cause a runtime failure. It follows the same resolver limits as the main graph.
+
+The **Appearance** selector in the header offers Light, Dark, and System. System is the default. An explicit choice survives reloads without resetting your project, selection, zoom, or filters when you switch. SVG exports freeze the current appearance, labels, and viewport.
+
 **Circular groups are not ordered paths.** A group is a strongly connected component: each file can reach every other file through one or more dependencies. Type-only imports count unless you turn them off. A group alone does not prove a runtime bug.
 
 The demo is illustrative: its connections are defined explicitly and its line/byte counts are sample data. The folder picker and CLI calculate real metadata.
@@ -121,6 +136,8 @@ The scanner intentionally pins the TypeScript 5.9 compiler API. TypeScript 7 cha
 ## Privacy
 
 Your files are read and parsed in memory on your device. There is no backend and the app makes no API calls with your source. Fonts and application assets are served with the viewer; there are no external font or analytics requests. Reloading clears the current project.
+
+Only the appearance preference is saved in browser local storage. Theme switching still works for the current visit if persistent storage is blocked.
 
 JSON exports contain relative file paths, dependency connections, line/byte counts, external package names, unresolved specifiers, and scan warnings. **They do not contain file contents.** Paths and package names can still reveal project structure, so review an export before sharing it.
 

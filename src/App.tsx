@@ -10,6 +10,7 @@ import {
   ChevronRight,
   CircleAlert,
   Code2,
+  Copy,
   Download,
   ExternalLink,
   FileCode2,
@@ -19,6 +20,7 @@ import {
   GitBranch,
   GitFork as Github,
   Layers,
+  Focus,
   LoaderCircle,
   LockKeyhole,
   Orbit,
@@ -30,7 +32,10 @@ import {
   X,
 } from 'lucide-react';
 import Graph, { colorFor } from './components/Graph';
-import { analyze, parseGraph } from './core/analysis';
+import ThemeControl from './components/ThemeControl';
+import { useTheme } from './hooks/useTheme';
+import { version } from '../package.json';
+import { analyze, collectImpact, parseGraph } from './core/analysis';
 import { demoGraph } from './core/demo';
 import { download, exportSvg, readProject, scanInWorker } from './core/io';
 import { MAX_BYTES, type AtlasGraph } from './core/types';
@@ -106,10 +111,14 @@ function ProjectDialog({
 }
 
 export default function App() {
+  const { preference, setPreference, resolvedTheme } = useTheme();
+  const folderColor = (folder: string, folders: string[]) =>
+    colorFor(folder, folders, resolvedTheme);
   const [graph, setGraph] = useState<AtlasGraph>(demoGraph);
   const [isDemo, setIsDemo] = useState(true);
   const [selected, setSelected] = useState<string | null>('src/App.tsx');
   const [mode, setMode] = useState<Mode>('all');
+  const [focus, setFocus] = useState<'neighbors' | 'impact' | null>(null);
   const [query, setQuery] = useState('');
   const [hiddenFolders, setHiddenFolders] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -134,6 +143,25 @@ export default function App() {
     [graph, includeTypes],
   );
   const analysis = useMemo(() => analyze(activeGraph), [activeGraph]);
+  const impact = useMemo(
+    () => (selected ? collectImpact(analysis.incoming, selected) : new Set<string>()),
+    [analysis, selected],
+  );
+  const scopeIds = useMemo(
+    () =>
+      focus === 'impact'
+        ? impact
+        : new Set(
+            selected
+              ? [
+                  selected,
+                  ...(analysis.incoming.get(selected) ?? []),
+                  ...(analysis.outgoing.get(selected) ?? []),
+                ]
+              : [],
+          ),
+    [focus, impact, analysis, selected],
+  );
   const sortedHotspots = useMemo(
     () =>
       [...graph.nodes].sort(
@@ -157,10 +185,11 @@ export default function App() {
         (n) =>
           !hiddenFolders.has(n.folder) &&
           n.id.toLowerCase().includes(query.toLowerCase()) &&
+          (!focus || scopeIds.has(n.id)) &&
           (mode !== 'cycles' || analysis.cycleNodes.has(n.id)) &&
           (mode !== 'hotspots' || hotspotIds.has(n.id)),
       ),
-    [graph, hiddenFolders, query, mode, analysis, hotspotIds],
+    [graph, hiddenFolders, query, mode, analysis, hotspotIds, focus, scopeIds],
   );
   const visibleNodes = useMemo(() => {
     if (matching.length <= 350) return matching;
@@ -222,7 +251,7 @@ export default function App() {
     setQuery('');
     setHiddenFolders(new Set());
     setCollapsed(new Set());
-    setMode('all');
+    changeMode('all');
     setSidebarTab('files');
     setIncludeTypes(true);
     setResetKey((k) => k + 1);
@@ -262,6 +291,26 @@ export default function App() {
   }
   function selectFile(id: string) {
     setSelected(id);
+  }
+  function changeMode(next: Mode) {
+    setMode(next);
+    setFocus(null);
+  }
+  function focusFile(next: 'neighbors' | 'impact') {
+    changeMode('all');
+    setFocus(next);
+    setQuery('');
+    setHiddenFolders(new Set());
+    setResetKey((k) => k + 1);
+  }
+  async function copyPath() {
+    if (!selected) return;
+    try {
+      await navigator.clipboard.writeText(selected);
+      setToast('File path copied.');
+    } catch {
+      setToast('Clipboard unavailable. Select the path in the inspector to copy it.');
+    }
   }
   function toggleFolder(folder: string) {
     setHiddenFolders((current) => {
@@ -368,6 +417,7 @@ export default function App() {
           {isDemo && <span className="badge">DEMO</span>}
         </div>
         <div className="header-actions">
+          <ThemeControl preference={preference} onChange={setPreference} />
           <a
             className="github-link"
             href={REPO_URL}
@@ -499,7 +549,7 @@ export default function App() {
                             ) : (
                               <ChevronDown size={12} />
                             )}
-                            <Folder size={14} color={colorFor(folder, folders)} />
+                            <Folder size={14} color={folderColor(folder, folders)} />
                             <span>{folder}</span>
                           </button>
                           <small>{allChildren.length}</small>
@@ -563,7 +613,7 @@ export default function App() {
                         key={id}
                         onClick={() => {
                           setSelected(id);
-                          setMode('cycles');
+                          changeMode('cycles');
                           setQuery('');
                           setHiddenFolders(new Set());
                         }}
@@ -602,7 +652,7 @@ export default function App() {
                     checked={!hiddenFolders.has(folder)}
                     onChange={() => toggleFolder(folder)}
                   />
-                  <span className="legend-check" style={{ color: colorFor(folder, folders) }}>
+                  <span className="legend-check" style={{ color: folderColor(folder, folders) }}>
                     {!hiddenFolders.has(folder) && <Check size={11} />}
                   </span>
                   <span>{folder.replace('src/', '')}</span>
@@ -676,7 +726,7 @@ export default function App() {
             <button
               className={`stat-card stat-button ${mode === 'cycles' ? 'stat-active' : ''}`}
               onClick={() => {
-                setMode(mode === 'cycles' ? 'all' : 'cycles');
+                changeMode(mode === 'cycles' ? 'all' : 'cycles');
                 setSidebarTab('cycles');
               }}
             >
@@ -709,18 +759,21 @@ export default function App() {
           <section className="map-panel" aria-label="Architecture explorer">
             <div className="map-toolbar">
               <div className="view-tabs" aria-label="Map view">
-                <button className={mode === 'all' ? 'active' : ''} onClick={() => setMode('all')}>
+                <button
+                  className={mode === 'all' ? 'active' : ''}
+                  onClick={() => changeMode('all')}
+                >
                   <Workflow size={14} /> All files
                 </button>
                 <button
                   className={mode === 'cycles' ? 'active' : ''}
-                  onClick={() => setMode('cycles')}
+                  onClick={() => changeMode('cycles')}
                 >
                   <RefreshCw size={13} /> Cycles <span>{analysis.cycles.length}</span>
                 </button>
                 <button
                   className={mode === 'hotspots' ? 'active' : ''}
-                  onClick={() => setMode('hotspots')}
+                  onClick={() => changeMode('hotspots')}
                 >
                   <Activity size={14} /> Hotspots
                 </button>
@@ -734,6 +787,18 @@ export default function App() {
                 <span className="switch" /> Type imports
               </label>
             </div>
+            {focus && (
+              <div className="focus-banner">
+                <Focus size={14} />
+                <span>
+                  <strong>{focus === 'impact' ? 'Change impact' : 'Connections'}:</strong>{' '}
+                  {inspected?.label} <small>· {matching.length} matching files</small>
+                </span>
+                <button onClick={() => setFocus(null)} aria-label="Clear focus">
+                  <X size={14} /> Show all
+                </button>
+              </div>
+            )}
             {matching.length > 350 && (
               <div className="graph-notice">
                 Showing the 350 most connected of {matching.length} matching files. Search or filter
@@ -754,6 +819,7 @@ export default function App() {
               onSelect={selectFile}
               mode={mode}
               resetKey={resetKey}
+              theme={resolvedTheme}
             />
             <div className="map-status">
               <span>
@@ -814,7 +880,7 @@ export default function App() {
               <div className="inspected-file">
                 <span
                   className="inspected-icon"
-                  style={{ color: colorFor(inspected.folder, folders) }}
+                  style={{ color: folderColor(inspected.folder, folders) }}
                 >
                   <FileCode2 size={25} />
                 </span>
@@ -828,6 +894,18 @@ export default function App() {
                   <span>·</span>
                   <span>{(inspected.bytes / 1024).toFixed(1)} KB</span>
                 </div>
+              </div>
+              <div className="inspector-actions">
+                <button onClick={() => focusFile('neighbors')}>
+                  <Focus size={13} /> Focus connections
+                </button>
+                <button
+                  onClick={() => void copyPath()}
+                  title="Copy file path"
+                  aria-label="Copy file path"
+                >
+                  <Copy size={14} />
+                </button>
               </div>
               <div className="connection-stats">
                 <div>
@@ -843,11 +921,22 @@ export default function App() {
                   </span>
                 </div>
               </div>
+              <div className="impact-card">
+                <div>
+                  <Activity size={15} />
+                  <span>Potential change impact</span>
+                  <strong>{Math.max(0, impact.size - 1)}</strong>
+                </div>
+                <p>Files that depend on this one, directly or through other files.</p>
+                <button onClick={() => focusFile('impact')}>
+                  Explore impact <ArrowUpRight size={13} />
+                </button>
+              </div>
               {selectedCycle && (
                 <button
                   className="cycle-alert"
                   onClick={() => {
-                    setMode('cycles');
+                    changeMode('cycles');
                     setSidebarTab('cycles');
                     setQuery('');
                     setHiddenFolders(new Set());
@@ -882,7 +971,7 @@ export default function App() {
                           >
                             <FileCode2
                               size={14}
-                              color={colorFor(nodeById.get(id)!.folder, folders)}
+                              color={folderColor(nodeById.get(id)!.folder, folders)}
                             />
                             <span>
                               <strong>{nodeById.get(id)!.label}</strong>
@@ -962,7 +1051,7 @@ export default function App() {
           Open source, open possibilities <ArrowUpRight size={12} />
         </a>
         <span>
-          REPO ATLAS <i /> v1.0.0
+          REPO ATLAS <i /> v{version}
         </span>
       </footer>
       {open && (
